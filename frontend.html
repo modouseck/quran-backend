@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quran Recitation — Voice Test</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1f2937; line-height: 1.5; }
+  h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+  .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem; margin-bottom: 1rem; background: #fff; }
+  .card h2 { font-size: 1rem; margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem; }
+  .card h2 .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
+  .card h2 .recording .dot { background: #ef4444; animation: blink 1s infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  input, select { width: 100%; padding: 0.5rem 0.75rem; margin: 0.25rem 0 0.75rem 0; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; }
+  button { width: 100%; padding: 0.6rem 1rem; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.25rem; }
+  button.primary { background: #111827; color: #fff; }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.danger { background: #fee2e2; color: #991b1b; }
+  button.danger.rec { background: #fecaca; color: #991b1b; }
+  button.success { background: #dcfce7; color: #166534; }
+  button.secondary { background: #f3f4f6; color: #111827; margin-top: 0.5rem; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  audio { width: 100%; margin: 0.5rem 0; }
+  .hidden { display: none; }
+  .result { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; margin-top: 1rem; }
+  .result h3 { margin: 0 0 0.5rem 0; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+  .text-box { white-space: pre-wrap; font-size: 1.1rem; margin: 0.25rem 0; font-family: ui-sans-serif, system-ui; }
+  .corrected { color: #166534; font-weight: 600; }
+  .errors-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 0.5rem; }
+  .errors-table th, .errors-table td { border: 1px solid #e5e7eb; padding: 0.4rem 0.5rem; text-align: left; }
+  .errors-table th { background: #f3f4f6; }
+  .badge { display: inline-block; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  .badge.add { background: #fef3c7; color: #92400e; }
+  .badge.omit { background: #fecaca; color: #991b1b; }
+  .badge.addition { background: #fef3c7; color: #92400e; }
+  .badge.omission { background: #fecaca; color: #991b1b; }
+  .badge.articulation { background: #dbeafe; color: #1e40af; }
+  .badge.madd { background: #d1fae5; color: #065f46; }
+  .badge.qalqalah { background: #fce7f3; color: #9d174d; }
+  .status { font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem; }
+  .auth-note { font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem; }
+</style>
+</head>
+<body>
+
+<h1>Quran Recitation — Voice Test</h1>
+
+<!-- Auth -->
+<div class="card">
+  <h2>1. Sign in <span style="margin-left:auto; font-size:0.75rem; color:#6b7280;">Required</span></h2>
+  <div class="auth-note">Get a JWT token so the backend knows who you are.</div>
+  <input id="regEmail" placeholder="email@example.com">
+  <input id="regUser" placeholder="username">
+  <input id="regPass" type="password" placeholder="password (min 6 chars)">
+  <button class="primary" id="btnRegister">Register</button>
+  <div class="row">
+    <input id="loginUser" placeholder="username or email">
+    <input id="loginPass" type="password" placeholder="password">
+  </div>
+  <button class="primary" id="btnLogin">Login</button>
+  <div id="tokenBox" class="hidden status" style="margin-top:0.5rem;"></div>
+</div>
+
+<!-- Recorder -->
+<div class="card">
+  <h2 id="recHead">2. Record your recitation</h2>
+  <div class="row">
+    <select id="surah"><option>1 — Al-Fatiha</option><option>112 — Al-Ikhlas</option><option>113 — Al-Falaq</option><option>114 — An-Nas</option></select>
+    <input id="ayah" type="number" placeholder="Ayah (e.g. 1)" value="1">
+  </div>
+  <div class="row">
+    <button id="btnStart" class="danger rec">Start Recording</button>
+    <button id="btnStop" class="secondary" disabled>Stop Recording</button>
+  </div>
+  <div id="status" class="status"></div>
+  <audio id="playback" controls class="hidden"></audio>
+  <button id="btnAnalyze" class="primary" disabled>Analyze Recitation</button>
+</div>
+
+<!-- Results -->
+<div id="results" class="card hidden">
+  <h2>3. Results</h2>
+  <div class="result">
+    <h3>Transcribed (what Whisper heard)</h3>
+    <div class="text-box" id="txtTranscribed"></div>
+  </div>
+  <div class="result">
+    <h3>Corrected (Quran reference)</h3>
+    <div class="text-box corrected" id="txtCorrected"></div>
+  </div>
+  <div class="result">
+    <h3>Tajweed Errors</h3>
+    <div id="confBadge" class="badge" style="margin-bottom:0.5rem;">Confidence: 0%</div>
+    <table class="errors-table" id="tblErrors">
+      <thead><tr><th>Detected word</th><th>Expected</th><th>Rule</th><th>Conf</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let token = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let recordedBlob = null;
+
+// ---------- Auth ----------
+async function register() {
+  const email = document.getElementById('regEmail').value;
+  const username = document.getElementById('regUser').value;
+  const password = document.getElementById('regPass').value;
+  try {
+    const r = await fetch(`${API}/users/`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ email, username, password })
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json.detail || 'Registration failed');
+    alert('Registered. Now log in.');
+  } catch (e) { alert(e.message); }
+}
+
+async function login() {
+  const form = new FormData();
+  form.append('username', document.getElementById('loginUser').value);
+  form.append('password', document.getElementById('loginPass').value);
+  const r = await fetch(`${API}/auth/token`, { method: 'POST', body: form });
+  if (!r.ok) { alert('Login failed'); return; }
+  const json = await r.json();
+  token = json.access_token;
+  document.getElementById('tokenBox').textContent = 'Logged in. Token: ' + token.slice(0, 24) + '...';
+  document.getElementById('tokenBox').classList.remove('hidden');
+}
+
+document.getElementById('btnRegister').onclick = register;
+document.getElementById('btnLogin').onclick = login;
+
+// ---------- Recorder ----------
+const btnStart = document.getElementById('btnStart');
+const btnStop = document.getElementById('btnStop');
+const btnAnalyze = document.getElementById('btnAnalyze');
+const status = document.getElementById('status');
+const playback = document.getElementById('playback');
+const recHead = document.getElementById('recHead');
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      recordedBlob = blob;
+      playback.src = URL.createObjectURL(blob);
+      playback.classList.remove('hidden');
+      btnAnalyze.disabled = false;
+      stream.getTracks().forEach(t => t.stop());
+    };
+    mediaRecorder.start(1000);
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    recHead.classList.add('recording');
+    status.textContent = 'Recording… speak now.';
+  } catch (e) {
+    alert('Microphone access denied: ' + e.message);
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+  recHead.classList.remove('recording');
+  status.textContent = 'Recording stopped.';
+}
+
+btnStart.onclick = startRecording;
+btnStop.onclick = stopRecording;
+
+// ---------- Analyze ----------
+async function analyze() {
+  if (!token) { alert('Please log in first.'); return; }
+  if (!recordedBlob) { alert('No recording to analyze.'); return; }
+
+  btnAnalyze.disabled = true;
+  btnAnalyze.textContent = 'Processing…';
+  status.textContent = 'Sending to backend…';
+
+  const form = new FormData();
+  form.append('surah_number', document.getElementById('surah').value.split(' — ')[0]);
+  form.append('ayah_number', document.getElementById('ayah').value || '1');
+  form.append('audio', recordedBlob, 'recitation.webm');
+
+  try {
+    const r = await fetch(`${API}/recitations/analyze/voice`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      body: form
+    });
+    const json = await r.json();
+    if (!r.ok) throw new Error(json.detail || 'Analysis failed');
+
+    // Show results
+    document.getElementById('results').classList.remove('hidden');
+    document.getElementById('txtTranscribed').textContent = json.transcribed_text || '(none)';
+    document.getElementById('txtCorrected').textContent = json.corrected_text || '(none)';
+    document.getElementById('confBadge').textContent = 'Confidence: ' + (json.confidence_score * 100).toFixed(0) + '%';
+    document.getElementById('confBadge').className = 'badge';
+
+    const tbody = document.querySelector('#tblErrors tbody');
+    tbody.innerHTML = '';
+    (json.tajweed_errors || []).forEach(e => {
+      const tr = document.createElement('tr');
+      const ruleClass = (e.rule || '').toLowerCase().includes('add') ? 'add' :
+                        (e.rule || '').toLowerCase().includes('omit') ? 'omit' :
+                        (e.rule || '').toLowerCase().includes('artic') ? 'articulation' :
+                        (e.rule || '').toLowerCase().includes('madd') ? 'madd' :
+                        (e.rule || '').toLowerCase().includes('qalq') ? 'qalqalah' : '';
+      tr.innerHTML = `<td>${e.word || '—'}</td><td>${e.expected || '—'}</td><td><span class="badge ${ruleClass}">${e.rule}</span></td><td>${(e.confidence * 100).toFixed(0)}%</td>`;
+      tbody.appendChild(tr);
+    });
+
+    status.textContent = 'Analysis complete.';
+  } catch (e) {
+    alert('Analysis error: ' + e.message);
+    status.textContent = 'Analysis failed.';
+  } finally {
+    btnAnalyze.disabled = false;
+    btnAnalyze.textContent = 'Analyze Recitation';
+  }
+}
+
+btnAnalyze.onclick = analyze;
+</script>
+
+</body>
+</html>
